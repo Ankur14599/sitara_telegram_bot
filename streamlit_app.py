@@ -5,12 +5,47 @@ import os
 from dotenv import load_dotenv
 import plotly.express as px
 
+from app.core.security import verify_password
+
 # Load environment variables
 load_dotenv()
 
 # MongoDB Connection
 MONGO_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 DB_NAME = os.getenv("MONGODB_DB_NAME", "smallbiz_bot")
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
+ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
+
+st.set_page_config(page_title="Sitara Admin", page_icon="*", layout="wide")
+
+
+def require_login():
+    """Require bcrypt-backed admin login before loading dashboard data."""
+    if st.session_state.get("authenticated"):
+        return
+
+    st.title("Sitara Admin")
+
+    if not ADMIN_USERNAME or not ADMIN_PASSWORD_HASH:
+        st.error("Admin credentials are not configured.")
+        st.stop()
+
+    with st.form("admin_login"):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        submitted = st.form_submit_button("Sign in")
+
+    if submitted:
+        if username == ADMIN_USERNAME and verify_password(password, ADMIN_PASSWORD_HASH):
+            st.session_state["authenticated"] = True
+            st.rerun()
+        else:
+            st.error("Invalid username or password.")
+
+    st.stop()
+
+
+require_login()
 
 @st.cache_resource
 def init_connection():
@@ -65,6 +100,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<h1 class="main-header">SmallBiz Telegram Bot - Admin Dashboard</h1>', unsafe_allow_html=True)
+
+if st.sidebar.button("Sign out"):
+    st.session_state.clear()
+    st.rerun()
 
 try:
     businesses, orders, inventory = get_data()

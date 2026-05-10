@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     # --- Admin Panel ---
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD_HASH: str
+    STREAMLIT_ADMIN_URL: Optional[str] = None
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRY_HOURS: int = 24

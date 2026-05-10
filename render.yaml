@@ -22,9 +22,11 @@ services:
       - key: GROQ_MODEL
         value: llama-3.3-70b-versatile
       - key: ADMIN_USERNAME
-        value: admin
+        sync: false
       - key: ADMIN_PASSWORD_HASH
         sync: false
+      - key: STREAMLIT_ADMIN_URL
+        value: https://sitara-telegram-dashboard.onrender.com
       - key: JWT_SECRET_KEY
         sync: false
       - key: JWT_ALGORITHM
@@ -37,3 +39,20 @@ services:
         value: false
       - key: LOG_LEVEL
         value: info
+  - type: web
+    name: sitara-telegram-dashboard
+    runtime: docker
+    plan: free
+    dockerCommand: 'sh -c "streamlit run streamlit_app.py --server.port ${PORT:-8501} --server.address 0.0.0.0 --server.headless true"'
+    healthCheckPath: /_stcore/health
+    envVars:
+      - key: PORT
+        value: 8501
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB_NAME
+        value: smallbiz_bot
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD_HASH
+        sync: false

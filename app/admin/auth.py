@@ -9,9 +9,22 @@ from app.admin.dependencies import get_current_admin
 router = APIRouter(prefix="/admin", tags=["admin"])
 templates = Jinja2Templates(directory="app/admin/templates")
 
+
+@router.get("")
+async def admin_root():
+    """Send the admin entrypoint to the configured dashboard."""
+    if settings.STREAMLIT_ADMIN_URL:
+        return RedirectResponse(settings.STREAMLIT_ADMIN_URL, status_code=307)
+
+    return RedirectResponse("/admin/dashboard", status_code=307)
+
+
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Render the login page."""
+    if settings.STREAMLIT_ADMIN_URL:
+        return RedirectResponse(settings.STREAMLIT_ADMIN_URL, status_code=307)
+
     return templates.TemplateResponse("login.html", {"request": request})
 
 @router.post("/login")

@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime, timezone
 
 from app.admin.dependencies import get_current_admin
+from app.core.config import settings
 from app.core.database import db
 
 router = APIRouter(prefix="/admin", tags=["admin-dashboard"])
@@ -14,6 +16,9 @@ async def dashboard_page(
     username: str = Depends(get_current_admin)
 ):
     """Admin dashboard with summary statistics."""
+    if settings.STREAMLIT_ADMIN_URL:
+        return RedirectResponse(settings.STREAMLIT_ADMIN_URL, status_code=307)
+
     # Gather stats
     total_businesses = await db.businesses.count_documents({})
     
