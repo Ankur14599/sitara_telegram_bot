@@ -21,6 +21,8 @@ from app.core.database import businesses_col
 from app.services.order_service import OrderService, ORDERS_PER_PAGE
 from app.services.customer_service import CustomerService
 from app.services.bom_service import BOMService
+from app.services.reminder_service import ReminderService
+from app.services.groq_service import groq_service
 from app.bot.keyboards.order_keyboards import (
     order_actions_keyboard,
     orders_pagination_keyboard,
@@ -195,8 +197,6 @@ async def neworder_deadline(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> int:
     """Receive deadline and create the order."""
-    from app.services.groq_service import groq_service
-
     user = update.effective_user
     deadline_text = update.message.text.strip()
 
@@ -262,7 +262,6 @@ async def neworder_deadline(
         await reminder_svc.schedule_reminders(
             str(order["_id"]), order["order_number"], deadline
         )
-        from app.services.reminder_service import ReminderService
 
     # Send confirmation
     items_display = "\n".join(

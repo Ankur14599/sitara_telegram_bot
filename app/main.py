@@ -44,7 +44,22 @@ async def lifespan(app: FastAPI):
     await bot_app.initialize()
     logger.info("Telegram bot initialized (webhook mode)")
 
-    # 4. Initialize and start the APScheduler
+    # 4. Register webhook with Telegram so updates go to THIS server
+    webhook_url = settings.full_webhook_url
+    try:
+        await bot_app.bot.delete_webhook(drop_pending_updates=True)
+        success = await bot_app.bot.set_webhook(
+            url=webhook_url,
+            secret_token=settings.WEBHOOK_SECRET,
+        )
+        if success:
+            logger.info(f"✅ Webhook registered: {webhook_url}")
+        else:
+            logger.error("❌ Failed to register webhook with Telegram")
+    except Exception as e:
+        logger.error(f"❌ Error registering webhook: {e}", exc_info=True)
+
+    # 5. Initialize and start the APScheduler
     await init_scheduler()
 
     logger.info("SmallBiz Bot startup complete ✓")
