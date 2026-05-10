@@ -14,7 +14,9 @@ DB_NAME = os.getenv("MONGODB_DB_NAME", "smallbiz_bot")
 
 @st.cache_resource
 def init_connection():
-    return pymongo.MongoClient(MONGO_URI)
+    client = pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    client.admin.command("ping")
+    return client
 
 client = init_connection()
 db = client[DB_NAME]
@@ -153,4 +155,3 @@ try:
 except Exception as e:
     st.error(f"Error connecting to database or fetching data: {str(e)}")
     st.info("Make sure your MongoDB container is running and accessible.")
-
