@@ -56,11 +56,34 @@ logger = logging.getLogger(__name__)
 _application: Application | None = None
 
 
+async def post_init(application: Application) -> None:
+    """Set the bot's command menu."""
+    from telegram import BotCommand
+    commands = [
+        BotCommand("start", "Start Sitara and register business"),
+        BotCommand("help", "See all available commands"),
+        BotCommand("neworder", "Create a new order (guided)"),
+        BotCommand("orders", "View all active orders"),
+        BotCommand("inventory", "Check stock levels"),
+        BotCommand("addstock", "Add items to inventory"),
+        BotCommand("lowstock", "Check items running low"),
+        BotCommand("setbom", "Define a recipe/materials"),
+        BotCommand("boms", "View all product recipes"),
+        BotCommand("recordpayment", "Record payment for an order"),
+        BotCommand("unpaid", "View unpaid orders"),
+        BotCommand("summary", "Today's business summary"),
+        BotCommand("invoice", "Generate PDF invoice"),
+    ]
+    await application.bot.set_my_commands(commands)
+    logger.info("Bot commands set in Telegram menu")
+
+
 def build_application() -> Application:
     """Build and configure the PTB Application with all handlers."""
     global _application
 
     builder = Application.builder().token(settings.TELEGRAM_BOT_TOKEN)
+    builder.post_init(post_init)
     app = builder.build()
 
     # ── Register handlers (order matters for MessageHandler) ──────────

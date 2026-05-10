@@ -205,8 +205,8 @@ with col3:
 with col4:
     metric_card("Low Stock", len(low_stock))
 
-tab_overview, tab_trends, tab_customers, tab_inventory = st.tabs(
-    ["Overview", "Trends", "Customers", "Inventory"]
+tab_overview, tab_orders, tab_customers, tab_inventory, tab_trends, tab_businesses = st.tabs(
+    ["Overview", "Orders", "Customers", "Inventory", "Trends", "Businesses"]
 )
 
 with tab_overview:
@@ -232,6 +232,93 @@ with tab_overview:
             )
         else:
             st.info("No daily order trend yet.")
+
+with tab_orders:
+    st.subheader("Manage Orders")
+    
+    # ── Create Order ──────────────────────────────────────────────────
+    with st.expander("➕ Add New Manual Order"):
+        with st.form("create_order_form"):
+            new_biz_id = st.number_input("Business ID", value=selected_business if selected_business != "All" else 0, min_value=0)
+            new_customer = st.text_input("Customer Name")
+            new_total = st.number_input("Total Amount", min_value=0.0, step=0.01)
+            create_submitted = st.form_submit_button("Create Order", use_container_width=True)
+            
+            if create_submitted:
+                if not new_customer:
+                    st.error("Customer name is required.")
+                elif new_biz_id == 0:
+                    st.error("Valid Business ID is required.")
+                else:
+                    from app.services.order_service import OrderService
+                    import asyncio
+                    
+                    # Since Streamlit is sync, we need a small helper to run async
+                    def run_async(coro):
+                        try:
+                            loop = asyncio.get_event_loop()
+                        except RuntimeError:
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                        return loop.run_until_complete(coro)
+
+                    svc = OrderService(new_biz_id)
+                    run_async(svc.create_order(customer_name=new_customer, items=[]))
+                    
+                    if new_total > 0:
+                        db.orders.update_one(
+                            {"business_id": new_biz_id, "customer_name": new_customer},
+                            {"$set": {"total_amount": new_total}},
+                            sort=[("created_at", -1)]
+                        )
+                    
+                    st.success(f"Order created for {new_customer}!")
+                    st.cache_data.clear()
+                    st.rerun()
+
+    # ── List / Update / Delete ────────────────────────────────────────
+    if orders_view:
+        df_orders = pd.DataFrame(orders_view)
+        # Sort by creation date descending
+        df_orders = df_orders.sort_values(by="created_at", ascending=False)
+        
+        for _, row in df_orders.iterrows():
+            with st.container(border=True):
+                c1, c2, c3, c4 = st.columns([2, 2, 2, 1])
+                order_num = row.get('order_number')
+                biz_id = row.get('business_id')
+                
+                with c1:
+                    st.markdown(f"**{order_num}**")
+                    st.caption(f"Business: {biz_id}")
+                with c2:
+                    st.text(row.get('customer_name'))
+                    st.text(money(row.get('total_amount')))
+                with c3:
+                    current_status = row.get('status', 'pending')
+                    status_options = ["pending", "in_progress", "ready", "completed", "cancelled"]
+                    new_status = st.selectbox(
+                        "Status", 
+                        options=status_options, 
+                        index=status_options.index(current_status),
+                        key=f"status_{order_num}",
+                        label_visibility="collapsed"
+                    )
+                    if new_status != current_status:
+                        db.orders.update_one(
+                            {"order_number": order_num, "business_id": biz_id},
+                            {"$set": {"status": new_status}}
+                        )
+                        st.cache_data.clear()
+                        st.rerun()
+                with c4:
+                    if st.button("🗑️", key=f"del_{order_num}", type="secondary", help="Delete Order"):
+                        db.orders.delete_one({"order_number": order_num, "business_id": biz_id})
+                        st.success(f"Deleted {order_num}")
+                        st.cache_data.clear()
+                        st.rerun()
+    else:
+        st.info("No orders found.")
 
 with tab_trends:
     left, right = st.columns(2)
@@ -260,19 +347,67 @@ with tab_trends:
             st.info("No customer trend data yet.")
 
 with tab_customers:
-    st.subheader("Customer List")
+    st.subheader("Customer Management")
+    
+    # ── Create Customer ───────────────────────────────────────────────
+    with st.expander("👤 Add New Customer"):
+        with st.form("create_customer_form"):
+            c_biz_id = st.number_input("Business ID", value=selected_business if selected_business != "All" else 0, min_value=0, key="cust_biz_id")
+            c_name = st.text_input("Customer Name")
+            c_phone = st.text_input("Phone (Optional)")
+            c_submitted = st.form_submit_button("Add Customer", use_container_width=True)
+            
+            if c_submitted:
+                if not c_name or c_biz_id == 0:
+                    st.error("Name and Business ID are required.")
+                else:
+                    from app.services.customer_service import CustomerService
+                    import asyncio
+                    
+                    def run_async(coro):
+                        try:
+                            loop = asyncio.get_event_loop()
+                        except RuntimeError:
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                        return loop.run_until_complete(coro)
+
+                    svc = CustomerService(c_biz_id)
+                    run_async(svc.find_or_create(c_name))
+                    if c_phone:
+                        db.customers.update_one(
+                            {"business_id": c_biz_id, "name": c_name},
+                            {"$set": {"phone": c_phone}}
+                        )
+                    st.success(f"Customer {c_name} added!")
+                    st.cache_data.clear()
+                    st.rerun()
+
+    # ── List / Delete ─────────────────────────────────────────────────
     if customers_view:
         df_customers = pd.DataFrame(customers_view)
-        columns = [
-            column for column in ["name", "total_orders", "total_spent", "last_order_date", "phone", "telegram_username"]
-            if column in df_customers.columns
-        ]
-        st.dataframe(
-            df_customers.sort_values(by="total_orders", ascending=False)[columns],
-            use_container_width=True,
-        )
+        # Handle cases where some columns might be missing
+        display_cols = ["name", "total_orders", "total_spent", "last_order_date"]
+        df_customers = df_customers[[c for c in display_cols if c in df_customers.columns]]
+        
+        for _, row in df_customers.iterrows():
+            with st.container(border=True):
+                c1, c2, c3 = st.columns([3, 2, 1])
+                name = row.get('name')
+                
+                with c1:
+                    st.markdown(f"**{name}**")
+                    st.caption(f"Orders: {row.get('total_orders', 0)} | Spent: {money(row.get('total_spent', 0))}")
+                with c2:
+                    st.caption(f"Last Order: {row.get('last_order_date', 'Never')}")
+                with c3:
+                    if st.button("🗑️", key=f"del_cust_{name}_{selected_business}", help="Delete Customer"):
+                        db.customers.delete_one({"name": name, "business_id": selected_business if selected_business != "All" else row.get('business_id')})
+                        st.success(f"Deleted {name}")
+                        st.cache_data.clear()
+                        st.rerun()
     else:
-        st.info("No customers yet.")
+        st.info("No customers found.")
 
 with tab_inventory:
     st.subheader("Inventory Health")
@@ -297,3 +432,32 @@ with tab_inventory:
         st.dataframe(df_inventory, use_container_width=True)
     else:
         st.info("No inventory items yet.")
+
+with tab_businesses:
+    st.subheader("Business Management")
+    st.caption("Admin only: Manage and block business accounts.")
+    
+    for biz in businesses:
+        with st.container(border=True):
+            b1, b2, b3 = st.columns([3, 2, 2])
+            biz_id = biz.get("telegram_user_id")
+            name = biz.get("business_name", "Unknown")
+            is_active = biz.get("is_active", True)
+            
+            with b1:
+                st.markdown(f"**{name}**")
+                st.caption(f"ID: {biz_id} | Owner: {biz.get('owner_name')}")
+            with b2:
+                status_color = "green" if is_active else "red"
+                st.markdown(f"Status: <span style='color:{status_color}'>{'ACTIVE' if is_active else 'BLOCKED'}</span>", unsafe_allow_html=True)
+            with b3:
+                if is_active:
+                    if st.button("🚫 Block", key=f"block_{biz_id}", use_container_width=True):
+                        db.businesses.update_one({"telegram_user_id": biz_id}, {"$set": {"is_active": False}})
+                        st.cache_data.clear()
+                        st.rerun()
+                else:
+                    if st.button("✅ Unblock", key=f"unblock_{biz_id}", use_container_width=True):
+                        db.businesses.update_one({"telegram_user_id": biz_id}, {"$set": {"is_active": True}})
+                        st.cache_data.clear()
+                        st.rerun()

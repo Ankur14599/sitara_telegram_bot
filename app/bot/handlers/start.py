@@ -33,52 +33,52 @@ Type /help to see all commands, or just start talking — I'm a good listener �
 """
 
 HELP_MESSAGE = """
-📚 *Sitara — Command Reference*
+✨ *Sitara — The Extensive Command Guide* ✨
 
-*📦 Orders*
-/neworder — Guided order creation wizard
-/orders — View all active orders (paginated)
-/order `<number>` — View specific order details
-/completeorder — Mark an order as complete
-/cancelorder — Cancel an order
+I'm here to help you manage every aspect of your small business. Here is the full breakdown of how to use me:
 
-*📊 Inventory*
-/inventory — View all stock with quantities
-/addstock — Add items to inventory
-/removestock — Manually deduct items
-/lowstock — Items at or below threshold
-/setprice — Set selling price for an item
-/setthreshold — Set low-stock alert threshold
+*📦 ORDER MANAGEMENT*
+• /neworder — Start a step-by-step wizard to create an order.
+• /orders — List all active orders. Click the buttons to change status.
+• /order `<number>` — Detailed view of a specific order (e.g., `/order 001`).
+• /completeorder — Quick-select list to mark orders as finished.
+• /cancelorder — Quick-select list to cancel an order.
+• /invoice `<number>` — Generates a professional PDF invoice for that order.
 
-*🧾 Bill of Materials*
-/bom `<product>` — View materials for a product
-/setbom `<product>` — Define materials for a product
-/boms — List all products with defined BOMs
+*📊 INVENTORY & STOCK*
+• /inventory — See everything you have in stock and what's running low.
+• /addstock `<item> <qty>` — Add items (e.g., `/addstock flour 10kg`).
+• /removestock `<item> <qty>` — Manually remove stock (e.g., `/removestock eggs 12`).
+• /lowstock — View only the items that have dropped below your alert level.
+• /setprice `<item> <price>` — Set the selling price for an inventory item.
+• /setthreshold `<item> <qty>` — Set when you want a "Low Stock" warning.
 
-*👥 Customers*
-/customers — View all customers
-/customer `<name>` — Customer profile + history
-/topcustomers — Top 5 customers by revenue
+*🧾 RECIPES (Bill of Materials)*
+• /setbom `<product>` — Define a recipe (e.g., `/setbom cookie`). I'll ask what materials it uses.
+• /bom `<product>` — View the recipe for a product.
+• /boms — List all products that have recipes defined.
+_Note: Inventory is auto-deducted when an order for these products is completed!_
 
-*💰 Payments*
-/recordpayment — Record payment for an order
-/unpaid — Orders with outstanding balance
-/revenue — Revenue summary (today/week/month)
+*💰 PAYMENTS & REVENUE*
+• /recordpayment `<order> <amount>` — Log a payment (e.g., `/recordpayment 001 500 upi`).
+• /unpaid — See a list of all orders that haven't been fully paid yet.
+• /revenue — Get a quick summary of money collected today, this week, and this month.
 
-*📋 Reports*
-/summary — Today's business summary
-/weeklysummary — This week's summary
-/invoice `<number>` — Generate PDF invoice
+*📋 BUSINESS INSIGHTS*
+• /summary — A snapshot of today's orders, payments, and stock alerts.
+• /weeklysummary — A broader look at your performance over the last 7 days.
+• /trends — See your best-selling items and top customers.
 
-*⚙️ Settings*
-/settings — View/edit business settings
-/settimezone — Set your timezone
-/setreminders — Configure reminder times
+*⚙️ SYSTEM & HELP*
+• /help — Show this guide.
+• /start — Restart the bot or register your business.
+• /cancel — Cancel any active wizard or conversation.
 
-*💡 Tip:* You can also just type naturally!
-_"order for Priya for 2 cakes for friday 8pm"_
-_"added 5kg flour"_
-_"how many orders today?"_
+*💡 PRO TIP:* You don't always need commands!
+Just tell me what's happening like you're talking to an assistant:
+• _"order for Priya for 5 cupcakes for tomorrow 2pm"_
+• _"i just used 2kg of sugar"_
+• _"how many orders are pending?"_
 """
 
 
