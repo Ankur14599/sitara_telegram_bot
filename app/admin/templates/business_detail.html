@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Business Detail - SmallBiz Admin{% endblock %}
+
+{% block content %}
+<h1>Business: {{ business.business_name }}</h1>
+
+<div class="dashboard-cards">
+    <div class="card">
+        <h3>Total Orders</h3>
+        <div class="stat">{{ stats.orders }}</div>
+    </div>
+    <div class="card">
+        <h3>Inventory Items</h3>
+        <div class="stat">{{ stats.inventory }}</div>
+    </div>
+</div>
+
+<h2>Actions</h2>
+<div>
+    <a href="/admin/orders?business_id={{ business.telegram_user_id }}" class="btn btn-primary">View Orders</a>
+    <a href="/admin/inventory?business_id={{ business.telegram_user_id }}" class="btn btn-primary">View Inventory</a>
+    <a href="/admin/boms?business_id={{ business.telegram_user_id }}" class="btn btn-primary">View BOMs</a>
+</div>
+{% endblock %}

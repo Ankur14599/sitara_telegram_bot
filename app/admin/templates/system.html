@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}System Status - SmallBiz Admin{% endblock %}
+
+{% block content %}
+<h1>System Status</h1>
+
+<div class="card" style="margin-bottom: 2rem;">
+    <h3>Telegram Webhook</h3>
+    <p><strong>Configured URL:</strong> {{ webhook_url }}</p>
+    
+    <form action="/admin/system/webhook" method="post" style="margin-top: 1rem;">
+        <button type="submit" class="btn btn-primary">Re-register Webhook</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Services</h3>
+    <ul>
+        <li><strong>Database:</strong> Connected (MongoDB)</li>
+        <li><strong>Scheduler:</strong> APScheduler Running</li>
+        <li><strong>LLM API:</strong> GROQ Ready</li>
+    </ul>
+</div>
+{% endblock %}

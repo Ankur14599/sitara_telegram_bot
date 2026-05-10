@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Businesses - SmallBiz Admin{% endblock %}
+
+{% block content %}
+<h1>Registered Businesses</h1>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>ID (Telegram)</th>
+            <th>Name</th>
+            <th>Owner</th>
+            <th>Timezone</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for b in businesses %}
+        <tr>
+            <td>{{ b.telegram_user_id }}</td>
+            <td>{{ b.business_name }}</td>
+            <td>{{ b.owner_name }}</td>
+            <td>{{ b.timezone }}</td>
+            <td>
+                <a href="/admin/businesses/{{ b.telegram_user_id }}" class="btn btn-primary" style="font-size: 0.8rem;">View</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

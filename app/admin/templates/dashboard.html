@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - SmallBiz Admin{% endblock %}
+
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="dashboard-cards">
+    <div class="card">
+        <h3>Total Businesses</h3>
+        <div class="stat">{{ stats.total_businesses }}</div>
+    </div>
+    <div class="card">
+        <h3>Orders Today</h3>
+        <div class="stat">{{ stats.orders_today }}</div>
+    </div>
+</div>
+
+<h2>Recent Activity</h2>
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Time</th>
+            <th>Business ID</th>
+            <th>Action</th>
+            <th>Entity Type</th>
+            <th>Entity ID</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for log in recent_activity %}
+        <tr>
+            <td>{{ log.timestamp }}</td>
+            <td>{{ log.business_id }}</td>
+            <td>{{ log.action }}</td>
+            <td>{{ log.entity_type }}</td>
+            <td>{{ log.entity_id }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: smallbiz-bot
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
+    volumes:
+      - ./app:/app/app
+    networks:
+      - smallbiz-network
+
+  dashboard:
+    build: .
+    container_name: smallbiz-dashboard
+    restart: unless-stopped
+    command: streamlit run streamlit_app.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
+    volumes:
+      - ./:/app
+    networks:
+      - smallbiz-network
+
+  mongodb:
+    image: mongo:7.0
+    container_name: smallbiz-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - smallbiz-network
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  smallbiz-network:
+    driver: bridge

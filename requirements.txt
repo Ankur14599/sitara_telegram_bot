@@ -1,0 +1,41 @@
+# FastAPI + Server
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+
+# Telegram Bot
+python-telegram-bot==21.5
+
+# MongoDB (async)
+motor==3.5.1
+pymongo==4.8.0
+
+# GROQ LLM
+groq==0.11.0
+
+# Scheduling
+APScheduler==3.10.4
+
+# Templating (Admin UI)
+Jinja2==3.1.4
+
+# PDF Generation
+reportlab==4.2.2
+
+# Authentication
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+bcrypt==4.2.0
+
+# Configuration
+pydantic-settings==2.5.2
+
+# Utilities
+python-dateutil==2.9.0
+pytz==2024.1
+httpx==0.27.2
+
+# Admin Dashboard (Streamlit)
+streamlit
+pandas
+plotly

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SmallBiz Admin{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+    <header class="navbar">
+        <div class="logo">SmallBiz Bot Admin</div>
+        {% if username %}
+        <nav>
+            <a href="/admin/dashboard">Dashboard</a>
+            <a href="/admin/businesses">Businesses</a>
+            <a href="/admin/orders">Orders</a>
+            <a href="/admin/inventory">Inventory</a>
+            <a href="/admin/boms">BOMs</a>
+            <a href="/admin/logs">Logs</a>
+            <a href="/admin/system">System</a>
+        </nav>
+        <div class="user-info">
+            Welcome, {{ username }} | <a href="/admin/logout">Logout</a>
+        </div>
+        {% endif %}
+    </header>
+    
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

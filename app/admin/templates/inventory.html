@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory - SmallBiz Admin{% endblock %}
+
+{% block content %}
+<h1>Inventory {% if business_id %}for Business {{ business_id }}{% endif %}</h1>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Business</th>
+            <th>Item Name</th>
+            <th>Quantity</th>
+            <th>Unit</th>
+            <th>Threshold</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in items %}
+        <tr>
+            <td>{{ item.business_name }}</td>
+            <td>{{ item.name }}</td>
+            <form action="/admin/inventory/{{ item.name_normalized }}/update" method="post">
+                <input type="hidden" name="business_id" value="{{ item.business_id }}">
+                <input type="hidden" name="name_normalized" value="{{ item.name_normalized }}">
+                <td><input type="number" step="0.1" name="quantity" value="{{ item.quantity }}" style="width: 80px;"></td>
+                <td>{{ item.unit }}</td>
+                <td><input type="number" step="0.1" name="low_stock_threshold" value="{{ item.low_stock_threshold }}" style="width: 80px;"></td>
+                <td><button type="submit" class="btn btn-primary" style="padding: 0.2rem 0.5rem;">Save</button></td>
+            </form>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
