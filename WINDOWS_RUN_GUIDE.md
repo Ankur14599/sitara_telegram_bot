@@ -1,81 +1,211 @@
-# 🚀 Windows Local Setup Guide (Podman Containers)
+# Windows Local Setup Guide (Podman Containers)
 
-Since `podman-compose` is causing path issues on your Windows machine, you can run the exact same setup using raw `podman` commands. This will spin up both your **Database** and your **Application** inside containers, perfectly mimicking what compose does!
+This guide runs the local MongoDB database, FastAPI Telegram bot, and Streamlit admin dashboard with raw Podman commands on Windows PowerShell.
 
-Here is the exact copy-paste sequence for Windows PowerShell.
+## Local URLs
 
----
+- FastAPI backend: `http://localhost:8000`
+- Health check: `http://localhost:8000/health`
+- Streamlit admin dashboard: `http://localhost:8501`
+- MongoDB from Windows host: `mongodb://localhost:27017`
+- MongoDB from Podman containers: `mongodb://smallbiz-mongodb:27017`
 
-## Step 1: Create a Network
-Containers need to be on the same network to talk to each other. (Run this once)
+## Required `.env` Values
+
+For local Podman containers, make sure `.env` contains:
+
+```env
+MONGODB_URI=mongodb://smallbiz-mongodb:27017
+MONGODB_DB_NAME=smallbiz_bot
+HOST=0.0.0.0
+PORT=8000
+DEBUG=true
+LOG_LEVEL=debug
+```
+
+The dashboard also needs:
+
+```env
+ADMIN_USERNAME=your-admin-username
+ADMIN_PASSWORD_HASH=your-bcrypt-password-hash
+```
+
+To generate an admin hash:
+
+```powershell
+podman run --rm -it `
+  -v "D:\SmallBiz Telegram Bot:/app" `
+  smallbiz-bot `
+  python scripts/generate_admin_hash.py
+```
+
+## First-Time Setup
+
+Run from PowerShell:
+
+```powershell
+cd "D:\SmallBiz Telegram Bot"
+```
+
+Create the shared container network:
+
 ```powershell
 podman network create smallbiz-network
 ```
 
----
+Start MongoDB:
 
-## Step 2: Start MongoDB
-Start the MongoDB container attached to the network we just created.
 ```powershell
-podman run -d --name smallbiz-mongodb --network smallbiz-network -p 27017:27017 mongo:7.0
+podman run -d `
+  --name smallbiz-mongodb `
+  --network smallbiz-network `
+  -p 27017:27017 `
+  -v smallbiz-mongodb-data:/data/db `
+  mongo:7.0
 ```
-*(Make sure your `.env` file has `MONGODB_URI=mongodb://smallbiz-mongodb:27017`)*
 
----
+Build the app image:
 
-## Step 3: Build the Application Image
-Build the backend container from your Dockerfile.
 ```powershell
 podman build -t smallbiz-bot .
 ```
 
----
+Start the FastAPI bot service:
 
-## Step 4: Run the Application Container
-Start your backend container! We will attach it to the network, map the port, load your `.env` variables, and mount your `/app` folder so that code changes sync instantly (just like compose does).
 ```powershell
-podman run -d --name smallbiz-bot --network smallbiz-network -p 8000:8000 --env-file .env -v "${PWD}/app:/app/app" smallbiz-bot
+podman run -d `
+  --name smallbiz-bot `
+  --network smallbiz-network `
+  -p 8000:8000 `
+  --env-file .env `
+  -e APP_MODE=bot `
+  -v "D:\SmallBiz Telegram Bot:/app" `
+  smallbiz-bot
 ```
 
----
+Start the Streamlit dashboard:
 
-## Step 4.5: Run the Streamlit Admin Dashboard
-Start the dashboard container. It will run on port 8501 and attach to the same network so it can read from MongoDB.
 ```powershell
-podman run -d --name smallbiz-dashboard --network smallbiz-network -p 8501:8501 --env-file .env -v "${PWD}:/app" smallbiz-bot streamlit run streamlit_app.py --server.port 8501 --server.address 0.0.0.0
+podman run -d `
+  --name smallbiz-dashboard `
+  --network smallbiz-network `
+  -p 8501:8501 `
+  --env-file .env `
+  -e APP_MODE=streamlit `
+  -e PORT=8501 `
+  -v "D:\SmallBiz Telegram Bot:/app" `
+  smallbiz-bot
 ```
 
----
+Check logs:
 
-## Step 5: Start Ngrok (The Tunnel)
-Open a **new PowerShell window** and leave it running to route Telegram traffic to your local container:
+```powershell
+podman logs -f smallbiz-bot
+```
+
+```powershell
+podman logs -f smallbiz-dashboard
+```
+
+## Telegram Webhook For Local Testing
+
+Start ngrok in a second PowerShell window:
+
 ```powershell
 ngrok http 8000 --url=yoga-deem-anyone.ngrok-free.dev
 ```
 
----
+In `.env`, set:
 
-### 🎉 You're Done!
-Your database, application, and admin dashboard are now running in containers. 
-
-- **Admin Dashboard URL:** `http://localhost:8501`
-- **FastAPI Backend URL:** `http://localhost:8000`
-
-### 🔁 Daily Workflow (When you restart your laptop):
-Because we used `-d` (detached), your containers will stay created. When you reboot your laptop, you just need to start them back up!
-
-1. **Start Database:** `podman start smallbiz-mongodb`
-2. **Start App:** `podman start smallbiz-bot`
-3. **Start Dashboard:** `podman start smallbiz-dashboard`
-4. **Start Ngrok:** `ngrok http 8000 --url=yoga-deem-anyone.ngrok-free.dev`
-
-### 🔄 How to apply code changes:
-Because we mounted the volume (`-v "${PWD}/app:/app/app"`), any changes you make to the Python files will automatically sync. You just need to restart the container to apply them:
-```powershell
-podman restart smallbiz-bot
+```env
+WEBHOOK_URL=https://yoga-deem-anyone.ngrok-free.dev
 ```
 
-### 🛑 How to stop everything:
+Then register the webhook:
+
+```powershell
+$TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+$APP_URL = "https://yoga-deem-anyone.ngrok-free.dev"
+$SECRET = "YOUR_WEBHOOK_SECRET"
+Invoke-RestMethod "https://api.telegram.org/bot$TOKEN/setWebhook?url=$APP_URL/webhook/$SECRET"
+Invoke-RestMethod "https://api.telegram.org/bot$TOKEN/getWebhookInfo"
+```
+
+## Daily Startup
+
+After rebooting:
+
+```powershell
+podman start smallbiz-mongodb
+podman start smallbiz-bot
+podman start smallbiz-dashboard
+```
+
+Then start ngrok again if you want Telegram webhook traffic:
+
+```powershell
+ngrok http 8000 --url=yoga-deem-anyone.ngrok-free.dev
+```
+
+## Apply Code Changes
+
+For normal Python changes, restart the affected container:
+
+```powershell
+podman restart smallbiz-bot
+podman restart smallbiz-dashboard
+```
+
+For dependency, Dockerfile, or startup changes, rebuild and recreate:
+
+```powershell
+podman rm -f smallbiz-bot smallbiz-dashboard
+podman build -t smallbiz-bot .
+```
+
+Then run the bot and dashboard commands again.
+
+## Test Everything
+
+Health check:
+
+```powershell
+Invoke-RestMethod http://localhost:8000/health
+```
+
+Dashboard:
+
+```text
+http://localhost:8501
+```
+
+Telegram trend examples:
+
+```text
+/trends
+/trends week
+/trends month
+what is trending this month?
+which items are ordered most?
+who are my top customers?
+```
+
+## Stop Everything
+
 ```powershell
 podman stop smallbiz-bot smallbiz-dashboard smallbiz-mongodb
+```
+
+## Reset Local Containers
+
+This removes containers but keeps MongoDB data:
+
+```powershell
+podman rm -f smallbiz-bot smallbiz-dashboard smallbiz-mongodb
+```
+
+This also deletes local MongoDB data:
+
+```powershell
+podman volume rm smallbiz-mongodb-data
 ```
