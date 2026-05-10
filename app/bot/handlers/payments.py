@@ -21,7 +21,9 @@ async def record_payment_handler(update: Update, context: ContextTypes.DEFAULT_T
         )
         return
 
-    order_number = context.args[0]
+    order_number = context.args[0].upper()
+    if not order_number.startswith("ORD-"):
+        order_number = f"ORD-{order_number}"
     
     try:
         amount = float(context.args[1])
@@ -36,18 +38,13 @@ async def record_payment_handler(update: Update, context: ContextTypes.DEFAULT_T
         method = PaymentMethod.CASH
 
     # Get order ID from order number
-    order = await order_svc.get_order_by_number(order_number)
+    order = await order_svc.get_order(order_number)
     if not order:
         await update.message.reply_text(f"Order {order_number} not found.")
         return
 
-    order_id = str(order["_id"]) if isinstance(order, dict) else str(order.id) if hasattr(order, "id") else str(order.get("_id", ""))
+    order_id = str(order["_id"])
     
-    # We need to make sure we extract the raw ObjectId string properly
-    # Using order_svc.get_order_by_number typically returns a dict
-    if isinstance(order, dict) and "_id" in order:
-        order_id = str(order["_id"])
-
     success, msg = await payment_svc.record_payment(order_id, amount, method)
     await update.message.reply_text(msg)
 
