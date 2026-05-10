@@ -22,5 +22,5 @@ COPY . .
 # Expose the FastAPI and Streamlit ports
 EXPOSE 8000 8501
 
-# Start Uvicorn. Render provides PORT; default to 8000 for local Docker runs.
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Start the selected app mode. Render provides PORT; defaults are in scripts/start.py.
+CMD ["python", "scripts/start.py"]

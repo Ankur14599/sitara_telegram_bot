@@ -7,6 +7,8 @@ services:
     envVars:
       - key: PORT
         value: 8000
+      - key: APP_MODE
+        value: bot
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: WEBHOOK_SECRET
@@ -43,11 +45,12 @@ services:
     name: sitara-telegram-dashboard
     runtime: docker
     plan: free
-    dockerCommand: streamlit run streamlit_app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
     healthCheckPath: /_stcore/health
     envVars:
       - key: PORT
         value: 8501
+      - key: APP_MODE
+        value: streamlit
       - key: MONGODB_URI
         sync: false
       - key: MONGODB_DB_NAME
