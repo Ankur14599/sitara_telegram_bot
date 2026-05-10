@@ -69,9 +69,8 @@ async def addstock_handler(
     
     # Prepend "added " to force the intent classification
     message_text = "added " + " ".join(context.args)
-    update.message.text = message_text
     
-    await natural_language_handler(update, context)
+    await natural_language_handler(update, context, message_text=message_text)
 
 
 async def removestock_handler(
@@ -90,9 +89,8 @@ async def removestock_handler(
     from app.bot.handlers.natural_language import natural_language_handler
     
     message_text = "used " + " ".join(context.args)
-    update.message.text = message_text
     
-    await natural_language_handler(update, context)
+    await natural_language_handler(update, context, message_text=message_text)
 
 
 async def lowstock_handler(

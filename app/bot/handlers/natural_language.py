@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 async def natural_language_handler(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
+    update: Update, context: ContextTypes.DEFAULT_TYPE, message_text: str = None
 ) -> None:
     """
     Handle free-form text messages.
@@ -32,7 +32,8 @@ async def natural_language_handler(
     Greetings and chitchat are handled by Sitara directly.
     """
     user = update.effective_user
-    message_text = update.message.text.strip()
+    if message_text is None:
+        message_text = update.message.text.strip()
 
     if not message_text:
         return
