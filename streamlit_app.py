@@ -1,16 +1,17 @@
-import streamlit as st
-import pandas as pd
-import pymongo
 import os
+
 from dotenv import load_dotenv
+import pandas as pd
 import plotly.express as px
+import pymongo
+import streamlit as st
 
 from app.core.security import verify_password
+from app.services.trend_service import TrendService
 
-# Load environment variables
+
 load_dotenv()
 
-# MongoDB Connection
 MONGO_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 DB_NAME = os.getenv("MONGODB_DB_NAME", "smallbiz_bot")
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
@@ -19,27 +20,70 @@ ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
 st.set_page_config(page_title="Sitara Admin", page_icon="*", layout="wide")
 
 
+def inject_css():
+    st.markdown(
+        """
+        <style>
+        .stApp { background: #f8fafc; color: #111827; }
+        [data-testid="stSidebar"] { background: #111827; }
+        [data-testid="stSidebar"] * { color: #f9fafb; }
+        .auth-wrap {
+            max-width: 440px;
+            margin: 9vh auto 2rem auto;
+            padding: 2rem;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+        }
+        .auth-title { font-size: 2rem; font-weight: 800; margin-bottom: .25rem; }
+        .auth-copy { color: #64748b; margin-bottom: 1.5rem; }
+        .metric-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        .metric-label { color: #64748b; font-size: .85rem; }
+        .metric-value { font-size: 1.65rem; font-weight: 800; color: #111827; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+inject_css()
+
+
 def require_login():
-    """Require bcrypt-backed admin login before loading dashboard data."""
     if st.session_state.get("authenticated"):
         return
 
-    st.title("Sitara Admin")
+    st.markdown(
+        """
+        <div class="auth-wrap">
+            <div class="auth-title">Sitara Admin</div>
+            <div class="auth-copy">Secure business analytics for orders, customers, inventory, and trends.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if not ADMIN_USERNAME or not ADMIN_PASSWORD_HASH:
         st.error("Admin credentials are not configured.")
         st.stop()
 
-    with st.form("admin_login"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Sign in")
+    _, center, _ = st.columns([1, 1.2, 1])
+    with center:
+        with st.form("admin_login"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Sign in", use_container_width=True)
 
-    if submitted:
-        if username == ADMIN_USERNAME and verify_password(password, ADMIN_PASSWORD_HASH):
-            st.session_state["authenticated"] = True
-            st.rerun()
-        else:
+        if submitted:
+            if username == ADMIN_USERNAME and verify_password(password, ADMIN_PASSWORD_HASH):
+                st.session_state["authenticated"] = True
+                st.rerun()
             st.error("Invalid username or password.")
 
     st.stop()
@@ -47,150 +91,209 @@ def require_login():
 
 require_login()
 
+
 @st.cache_resource
 def init_connection():
     client = pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     client.admin.command("ping")
     return client
 
+
 client = init_connection()
 db = client[DB_NAME]
 
-def get_data():
+
+@st.cache_data(ttl=60)
+def load_data():
     businesses = list(db.businesses.find())
     orders = list(db.orders.find())
     inventory = list(db.inventory.find())
-    return businesses, orders, inventory
+    customers = list(db.customers.find())
+    return businesses, orders, inventory, customers
 
-# Custom CSS for further styling
-st.markdown("""
-    <style>
-    .stApp {
-        background-color: #FFFFFF;
-    }
-    .main-header {
-        color: #FFA500;
-        font-weight: bold;
-        text-align: center;
-        margin-bottom: 20px;
-    }
-    .metric-card {
-        background-color: #FFF0C2;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        text-align: center;
-        margin-bottom: 20px;
-    }
-    .metric-title {
-        font-size: 16px;
-        color: #333333;
-        margin-bottom: 10px;
-    }
-    .metric-value {
-        font-size: 28px;
-        font-weight: bold;
-        color: #FFA500;
-    }
-    .stSelectbox label {
-        color: #333333;
-        font-weight: bold;
-    }
-    </style>
-""", unsafe_allow_html=True)
 
-st.markdown('<h1 class="main-header">SmallBiz Telegram Bot - Admin Dashboard</h1>', unsafe_allow_html=True)
+@st.cache_data(ttl=60)
+def load_trends(business_id, days):
+    since = TrendService.since(days)
+    query_business_id = business_id if business_id != "All" else None
 
-if st.sidebar.button("Sign out"):
+    if query_business_id is None:
+        base_match = {"created_at": {"$gte": since}}
+        item_pipeline = TrendService.top_items_pipeline(0, since, 12)
+        customer_pipeline = TrendService.top_customers_pipeline(0, since, 12)
+        status_pipeline = TrendService.status_pipeline(0, since)
+        daily_pipeline = TrendService.daily_orders_pipeline(0, since)
+        for pipeline in (item_pipeline, customer_pipeline, status_pipeline, daily_pipeline):
+            pipeline[0]["$match"] = base_match
+    else:
+        item_pipeline = TrendService.top_items_pipeline(query_business_id, since, 12)
+        customer_pipeline = TrendService.top_customers_pipeline(query_business_id, since, 12)
+        status_pipeline = TrendService.status_pipeline(query_business_id, since)
+        daily_pipeline = TrendService.daily_orders_pipeline(query_business_id, since)
+
+    return {
+        "top_items": list(db.orders.aggregate(item_pipeline)),
+        "top_customers": list(db.orders.aggregate(customer_pipeline)),
+        "statuses": list(db.orders.aggregate(status_pipeline)),
+        "daily_orders": list(db.orders.aggregate(daily_pipeline)),
+    }
+
+
+def filter_records(records, business_id):
+    if business_id == "All":
+        return records
+    return [record for record in records if record.get("business_id") == business_id]
+
+
+def metric_card(label, value):
+    st.markdown(
+        f'<div class="metric-card"><div class="metric-label">{label}</div>'
+        f'<div class="metric-value">{value}</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def money(value):
+    return f"Rs. {float(value or 0):,.2f}"
+
+
+businesses, orders, inventory, customers = load_data()
+
+st.sidebar.title("Sitara")
+st.sidebar.caption("Admin dashboard")
+if st.sidebar.button("Sign out", use_container_width=True):
     st.session_state.clear()
     st.rerun()
 
-try:
-    businesses, orders, inventory = get_data()
-    
-    # System Level Metrics
-    st.markdown("### System Overview")
-    col1, col2, col3, col4 = st.columns(4)
-    
-    total_businesses = len(businesses)
-    total_orders = len(orders)
-    total_revenue = sum([o.get('total_amount', 0) for o in orders if o.get('status') != 'cancelled'])
-    total_inventory = len(inventory)
-    
-    with col1:
-        st.markdown(f'<div class="metric-card"><div class="metric-title">Total Businesses</div><div class="metric-value">{total_businesses}</div></div>', unsafe_allow_html=True)
-    with col2:
-        st.markdown(f'<div class="metric-card"><div class="metric-title">Total Orders</div><div class="metric-value">{total_orders}</div></div>', unsafe_allow_html=True)
-    with col3:
-        st.markdown(f'<div class="metric-card"><div class="metric-title">Total Revenue</div><div class="metric-value">₹{total_revenue:,.2f}</div></div>', unsafe_allow_html=True)
-    with col4:
-        st.markdown(f'<div class="metric-card"><div class="metric-title">Inventory Items</div><div class="metric-value">{total_inventory}</div></div>', unsafe_allow_html=True)
+business_options = {"All": "All Businesses"}
+business_options.update(
+    {
+        b.get("telegram_user_id"): f"{b.get('business_name', 'Unknown')} ({b.get('telegram_user_id')})"
+        for b in businesses
+    }
+)
 
-    st.markdown("---")
-    
-    if businesses:
-        b_options = {b["telegram_user_id"]: f"{b.get('business_name', 'Unknown')} (ID: {b['telegram_user_id']})" for b in businesses}
-        selected_b_id = st.selectbox("Select a Business to View Details:", options=["All"] + list(b_options.keys()), format_func=lambda x: "All Businesses" if x == "All" else b_options[x])
-        
-        # Filter Data
-        if selected_b_id != "All":
-            orders = [o for o in orders if o.get('business_id') == selected_b_id]
-            inventory = [i for i in inventory if i.get('business_id') == selected_b_id]
-        
-        # Business Specific Visualizations
-        st.markdown(f"### {'System Wide Data' if selected_b_id == 'All' else b_options[selected_b_id] + ' Data'}")
-        
-        col_chart1, col_chart2 = st.columns(2)
-        
-        with col_chart1:
-            st.markdown("#### Order Status Breakdown")
-            if orders:
-                df_orders = pd.DataFrame(orders)
-                status_counts = df_orders['status'].value_counts().reset_index()
-                status_counts.columns = ['status', 'count']
-                fig_pie = px.pie(status_counts, names='status', values='count', 
-                                 color_discrete_sequence=['#FFA500', '#FFCC00', '#FF8C00', '#FFD700', '#FFF0C2'])
-                st.plotly_chart(fig_pie, use_container_width=True)
-            else:
-                st.info("No orders found for this selection.")
-                
-        with col_chart2:
-            st.markdown("#### Payment Status Breakdown")
-            if orders and 'payment_status' in df_orders.columns:
-                payment_counts = df_orders['payment_status'].value_counts().reset_index()
-                payment_counts.columns = ['payment_status', 'count']
-                fig_pay = px.pie(payment_counts, names='payment_status', values='count', 
-                                 color_discrete_sequence=['#FFCC00', '#FFA500', '#FFF0C2'])
-                st.plotly_chart(fig_pay, use_container_width=True)
-            else:
-                st.info("No payment data available.")
-        
-        st.markdown("#### Inventory Status")
-        if inventory:
-            df_inv = pd.DataFrame(inventory)
-            if 'quantity' in df_inv.columns and 'low_stock_threshold' in df_inv.columns:
-                df_inv['is_low_stock'] = df_inv['quantity'] <= df_inv['low_stock_threshold']
-                low_stock_items = df_inv[df_inv['is_low_stock']]
-                
-                if not low_stock_items.empty:
-                    st.warning(f"⚠️ {len(low_stock_items)} items are low on stock!")
-                    st.dataframe(low_stock_items[['name', 'quantity', 'low_stock_threshold', 'unit']], use_container_width=True)
-                else:
-                    st.success("All inventory items are adequately stocked.")
-                
-                # Inventory Chart
-                fig_bar = px.bar(df_inv.sort_values(by='quantity', ascending=False).head(15), 
-                                 x='name', y='quantity', title="Top 15 Inventory Items by Quantity",
-                                 color_discrete_sequence=['#FFA500'])
-                st.plotly_chart(fig_bar, use_container_width=True)
-            else:
-                st.dataframe(df_inv, use_container_width=True)
+selected_business = st.sidebar.selectbox(
+    "Business",
+    options=list(business_options.keys()),
+    format_func=lambda key: business_options[key],
+)
+days = st.sidebar.selectbox("Trend window", options=[7, 30, 90], index=1)
+
+orders_view = filter_records(orders, selected_business)
+inventory_view = filter_records(inventory, selected_business)
+customers_view = filter_records(customers, selected_business)
+trends = load_trends(selected_business, days)
+
+st.title("Sitara Admin Dashboard")
+st.caption(f"Live overview for {business_options[selected_business]}")
+
+total_revenue = sum(float(order.get("total_amount", 0) or 0) for order in orders_view if order.get("status") != "cancelled")
+active_orders = len([order for order in orders_view if order.get("status") not in ("completed", "cancelled")])
+low_stock = [
+    item for item in inventory_view
+    if float(item.get("quantity", 0) or 0) <= float(item.get("low_stock_threshold", 0) or 0)
+]
+
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    metric_card("Orders", len(orders_view))
+with col2:
+    metric_card("Active Orders", active_orders)
+with col3:
+    metric_card("Revenue", money(total_revenue))
+with col4:
+    metric_card("Low Stock", len(low_stock))
+
+tab_overview, tab_trends, tab_customers, tab_inventory = st.tabs(
+    ["Overview", "Trends", "Customers", "Inventory"]
+)
+
+with tab_overview:
+    left, right = st.columns(2)
+    with left:
+        st.subheader("Order Status")
+        if trends["statuses"]:
+            df_status = pd.DataFrame(trends["statuses"]).rename(columns={"_id": "status"})
+            st.plotly_chart(
+                px.pie(df_status, names="status", values="count", hole=0.45),
+                use_container_width=True,
+            )
         else:
-            st.info("No inventory found for this selection.")
-            
+            st.info("No order status data yet.")
+
+    with right:
+        st.subheader("Orders Over Time")
+        if trends["daily_orders"]:
+            df_daily = pd.DataFrame(trends["daily_orders"]).rename(columns={"_id": "date"})
+            st.plotly_chart(
+                px.line(df_daily, x="date", y="orders", markers=True),
+                use_container_width=True,
+            )
+        else:
+            st.info("No daily order trend yet.")
+
+with tab_trends:
+    left, right = st.columns(2)
+    with left:
+        st.subheader(f"Most Ordered Items ({days} days)")
+        if trends["top_items"]:
+            df_items = pd.DataFrame(trends["top_items"])
+            st.plotly_chart(
+                px.bar(df_items, x="item", y="quantity", hover_data=["orders", "revenue"]),
+                use_container_width=True,
+            )
+            st.dataframe(df_items[["item", "quantity", "orders", "revenue"]], use_container_width=True)
+        else:
+            st.info("No item trend data yet.")
+
+    with right:
+        st.subheader(f"Top Customers ({days} days)")
+        if trends["top_customers"]:
+            df_top_customers = pd.DataFrame(trends["top_customers"])
+            st.plotly_chart(
+                px.bar(df_top_customers, x="customer", y="orders", hover_data=["revenue"]),
+                use_container_width=True,
+            )
+            st.dataframe(df_top_customers[["customer", "orders", "revenue", "last_order"]], use_container_width=True)
+        else:
+            st.info("No customer trend data yet.")
+
+with tab_customers:
+    st.subheader("Customer List")
+    if customers_view:
+        df_customers = pd.DataFrame(customers_view)
+        columns = [
+            column for column in ["name", "total_orders", "total_spent", "last_order_date", "phone", "telegram_username"]
+            if column in df_customers.columns
+        ]
+        st.dataframe(
+            df_customers.sort_values(by="total_orders", ascending=False)[columns],
+            use_container_width=True,
+        )
     else:
-        st.info("No businesses found in the database. Wait for users to register via the bot.")
-        
-except Exception as e:
-    st.error(f"Error connecting to database or fetching data: {str(e)}")
-    st.info("Make sure your MongoDB container is running and accessible.")
+        st.info("No customers yet.")
+
+with tab_inventory:
+    st.subheader("Inventory Health")
+    if low_stock:
+        st.warning(f"{len(low_stock)} items are at or below threshold.")
+        st.dataframe(pd.DataFrame(low_stock), use_container_width=True)
+    elif inventory_view:
+        st.success("All inventory items are above threshold.")
+
+    if inventory_view:
+        df_inventory = pd.DataFrame(inventory_view)
+        if {"name", "quantity"}.issubset(df_inventory.columns):
+            st.plotly_chart(
+                px.bar(
+                    df_inventory.sort_values(by="quantity", ascending=False).head(15),
+                    x="name",
+                    y="quantity",
+                    color="unit" if "unit" in df_inventory.columns else None,
+                ),
+                use_container_width=True,
+            )
+        st.dataframe(df_inventory, use_container_width=True)
+    else:
+        st.info("No inventory items yet.")

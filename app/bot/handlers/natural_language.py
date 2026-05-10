@@ -17,6 +17,7 @@ from app.services.customer_service import CustomerService
 from app.services.inventory_service import InventoryService
 from app.services.reminder_service import ReminderService
 from app.services.bom_service import BOMService
+from app.services.trend_service import TrendService
 from app.bot.keyboards.order_keyboards import order_actions_keyboard
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,10 @@ async def natural_language_handler(
 
     business_id = user.id
     tz = business.get("timezone", "Asia/Kolkata")
+
+    if _is_trend_question(message_text):
+        await _handle_trend_question(update, context, business_id, message_text)
+        return
 
     # ── Per-user GROQ rate-limit check ───────────────────────────────
     if not groq_service.check_user_rate_limit(user.id):
@@ -164,6 +169,43 @@ async def _handle_unknown(
 
 
 # ── Business intent handlers ───────────────────────────────────────────
+
+
+def _is_trend_question(message_text: str) -> bool:
+    """Detect common trend/report questions without spending an AI call."""
+    text = message_text.lower()
+    keywords = [
+        "trend", "trending", "most ordered", "top item", "top product",
+        "best seller", "bestseller", "popular item", "top customer",
+        "best customer", "repeat customer", "customer trend",
+    ]
+    return any(keyword in text for keyword in keywords)
+
+
+async def _handle_trend_question(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    business_id: int,
+    message_text: str,
+) -> None:
+    """Answer trend questions from live order data."""
+    text = message_text.lower()
+    days = 30
+
+    if "today" in text:
+        days = 1
+    elif "week" in text or "7 day" in text:
+        days = 7
+    elif "month" in text or "30 day" in text:
+        days = 30
+    elif "90 day" in text or "quarter" in text:
+        days = 90
+
+    trends = await TrendService(business_id).get_trends(days=days)
+    await update.message.reply_text(
+        TrendService.format_trends(trends),
+        parse_mode="Markdown",
+    )
 
 
 async def _handle_new_order(

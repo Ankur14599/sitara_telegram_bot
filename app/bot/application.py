@@ -45,6 +45,7 @@ from app.bot.handlers.payments import (
 from app.bot.handlers.summary import (
     summary_handler,
     weeklysummary_handler,
+    trends_handler,
 )
 from app.bot.handlers.admin import broadcast_handler
 from app.bot.handlers.callbacks import callback_router
@@ -102,6 +103,7 @@ def build_application() -> Application:
     # Command handlers — Summary
     app.add_handler(CommandHandler("summary", summary_handler))
     app.add_handler(CommandHandler("weeklysummary", weeklysummary_handler))
+    app.add_handler(CommandHandler("trends", trends_handler))
     
     # Command handlers — Admin
     app.add_handler(CommandHandler("broadcast", broadcast_handler))
